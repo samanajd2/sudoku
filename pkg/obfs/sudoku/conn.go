@@ -6,28 +6,13 @@ import (
 	"bytes"
 	crypto_rand "crypto/rand"
 	"encoding/binary"
-	"io"
+	"errors"
 	"math/rand"
 	"net"
 	"sync"
 )
 
 const IOBufferSize = 32 * 1024
-
-var (
-	// bufferPool is a pool of 32KB buffers for IO operations
-	bufferPool = sync.Pool{
-		New: func() interface{} {
-			return make([]byte, IOBufferSize)
-		},
-	}
-	// outBufferPool is a pool for write buffers, starting small but can grow
-	outBufferPool = sync.Pool{
-		New: func() interface{} {
-			return make([]byte, 0, 4096)
-		},
-	}
-)
 
 type Conn struct {
 	net.Conn
@@ -61,7 +46,7 @@ func NewConn(c net.Conn, table *Table, pMin, pMax int, record bool) *Conn {
 		Conn:        c,
 		table:       table,
 		reader:      bufio.NewReaderSize(c, IOBufferSize),
-		rawBuf:      bufferPool.Get().([]byte),
+		rawBuf:      make([]byte, IOBufferSize),
 		pendingData: make([]byte, 0, 4096),
 		hintBuf:     make([]byte, 0, 4),
 		rng:         localRng,
@@ -72,15 +57,6 @@ func NewConn(c net.Conn, table *Table, pMin, pMax int, record bool) *Conn {
 		sc.recording = true
 	}
 	return sc
-}
-
-// Close closes the connection and returns buffers to the pool
-func (sc *Conn) Close() error {
-	if sc.rawBuf != nil {
-		bufferPool.Put(sc.rawBuf)
-		sc.rawBuf = nil
-	}
-	return sc.Conn.Close()
 }
 
 func (sc *Conn) StopRecording() {
@@ -119,16 +95,8 @@ func (sc *Conn) Write(p []byte) (n int, err error) {
 		return 0, nil
 	}
 
-	// Estimate capacity: 1 byte -> 4 hints + padding.
-	// Conservative estimate: 6x expansion
-	out := outBufferPool.Get().([]byte)
-	out = out[:0] // Reset
-	defer func() {
-		if cap(out) <= 64*1024 { // Only put back if not too huge
-			outBufferPool.Put(out)
-		}
-	}()
-
+	outCapacity := len(p) * 6
+	out := make([]byte, 0, outCapacity)
 	pads := sc.table.PaddingPool
 	padLen := len(pads)
 
@@ -138,10 +106,6 @@ func (sc *Conn) Write(p []byte) (n int, err error) {
 		}
 
 		puzzles := sc.table.EncodeTable[b]
-		if len(puzzles) == 0 {
-			// Should not happen if table is initialized correctly
-			continue
-		}
 		puzzle := puzzles[sc.rng.Intn(len(puzzles))]
 
 		// Shuffle hints
@@ -216,7 +180,7 @@ func (sc *Conn) Read(p []byte) (n int, err error) {
 					key := packHintsToKey([4]byte{sc.hintBuf[0], sc.hintBuf[1], sc.hintBuf[2], sc.hintBuf[3]})
 					val, ok := sc.table.DecodeMap[key]
 					if !ok {
-						return 0, ErrInvalidSudokuMapMiss
+						return 0, errors.New("INVALID_SUDOKU_MAP_MISS")
 					}
 					sc.pendingData = append(sc.pendingData, val)
 					sc.hintBuf = sc.hintBuf[:0]
@@ -225,9 +189,6 @@ func (sc *Conn) Read(p []byte) (n int, err error) {
 		}
 
 		if rErr != nil {
-			if rErr == io.EOF && len(sc.pendingData) > 0 {
-				break
-			}
 			return 0, rErr
 		}
 		if len(sc.pendingData) > 0 {
