@@ -1,6 +1,6 @@
 # Sudoku API (Standard)
 
-面向其他开发者开放的纯 Sudoku 协议 API：HTTP 伪装 + 数独 ASCII/Entropy 混淆 + AEAD 加密。**不包含 hybrid/Mieru 的上下行分离逻辑**，方便直接嵌入其他项目。
+面向其他开发者开放的纯 Sudoku 协议 API：HTTP 伪装 + 数独 ASCII/Entropy 混淆 + AEAD 加密。支持带宽优化下行（`enable_pure_downlink=false`）与 UoT（UDP over TCP）。
 
 ## 安装
 - 推荐指定已有 tag：`go get github.com/saba-futai/sudoku@v0.1.0`
@@ -112,4 +112,5 @@ func main() {
 ## 说明
 - `DefaultConfig()` 提供合理默认值，仍需设置 `Key`、`Table` 及对应的地址字段。
 - 服务端如需回落（HTTP/原始 TCP），可从 `HandshakeError` 取出 `HTTPHeaderData` 与 `ReadData` 按顺序重放。
-- 需要 hybrid/Mieru 上下行分离时请继续使用项目内置 CLI；该 API 仅覆盖标准单通道模式。
+- 带宽优化模式：将 `enable_pure_downlink` 设为 `false`，需启用 AEAD。
+- 如需 UoT，调用 `DialUDPOverTCP` / `DetectUoT` + `HandleUoT`。

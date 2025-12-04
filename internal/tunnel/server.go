@@ -6,13 +6,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/saba-futai/sudoku/internal/config"
-	"github.com/saba-futai/sudoku/internal/hybrid"
 	"github.com/saba-futai/sudoku/pkg/crypto"
 	"github.com/saba-futai/sudoku/pkg/obfs/httpmask"
 	"github.com/saba-futai/sudoku/pkg/obfs/sudoku"
@@ -109,8 +107,7 @@ func (e *SuspiciousError) Error() string {
 }
 
 // HandshakeAndUpgrade wraps the raw connection with Sudoku/Crypto and performs handshake.
-// It also handles Split Mode detection.
-func HandshakeAndUpgrade(rawConn net.Conn, cfg *config.Config, table *sudoku.Table, mgr *hybrid.Manager) (net.Conn, error) {
+func HandshakeAndUpgrade(rawConn net.Conn, cfg *config.Config, table *sudoku.Table) (net.Conn, error) {
 	// 0. HTTP Header Check
 	bufReader := bufio.NewReader(rawConn)
 	rawConn.SetReadDeadline(time.Now().Add(HandshakeTimeout))
@@ -149,10 +146,13 @@ func HandshakeAndUpgrade(rawConn net.Conn, cfg *config.Config, table *sudoku.Tab
 	bConn := &BufferedConn{Conn: rawConn, r: bufReader}
 
 	// 1. Sudoku Layer
-	sConn := sudoku.NewConn(bConn, table, cfg.PaddingMin, cfg.PaddingMax, true)
+	if !cfg.EnablePureDownlink && cfg.AEAD == "none" {
+		return nil, fmt.Errorf("enable_pure_downlink=false requires AEAD")
+	}
+	sConn, obfsConn := buildObfsConnForServer(bConn, table, cfg, true)
 
 	// 2. Crypto Layer
-	cConn, err := crypto.NewAEADConn(sConn, cfg.Key, cfg.AEAD)
+	cConn, err := crypto.NewAEADConn(obfsConn, cfg.Key, cfg.AEAD)
 	if err != nil {
 		return nil, fmt.Errorf("crypto setup failed: %w", err)
 	}
@@ -174,62 +174,20 @@ func HandshakeAndUpgrade(rawConn net.Conn, cfg *config.Config, table *sudoku.Tab
 
 	sConn.StopRecording()
 
-	// 4. Split Detect
-	magicBuf := make([]byte, 1)
-	if _, err := io.ReadFull(cConn, magicBuf); err != nil {
+	// 4. Downlink mode negotiation
+	modeBuf := make([]byte, 1)
+	rawConn.SetReadDeadline(time.Now().Add(HandshakeTimeout))
+	if _, err := io.ReadFull(cConn, modeBuf); err != nil {
 		cConn.Close()
-		return nil, fmt.Errorf("read magic failed: %w", err)
+		return nil, fmt.Errorf("read downlink mode failed: %w", err)
+	}
+	rawConn.SetReadDeadline(time.Time{})
+	if modeBuf[0] != downlinkModeByte(cfg) {
+		cConn.Close()
+		return nil, &SuspiciousError{Err: fmt.Errorf("downlink mode mismatch: client=%d server=%d", modeBuf[0], downlinkModeByte(cfg)), Conn: sConn}
 	}
 
-	if magicBuf[0] == 0xFF && cfg.EnableMieru {
-		// Split Mode
-		lenBuf := make([]byte, 1)
-		if _, err := io.ReadFull(cConn, lenBuf); err != nil {
-			cConn.Close()
-			return nil, fmt.Errorf("read uuid len failed: %w", err)
-		}
-		uuidBuf := make([]byte, int(lenBuf[0]))
-		if _, err := io.ReadFull(cConn, uuidBuf); err != nil {
-			cConn.Close()
-			return nil, fmt.Errorf("read uuid failed: %w", err)
-		}
-		uuid := string(uuidBuf)
-
-		log.Printf("[Server] Split request UUID: %s, waiting for Mieru...", uuid)
-
-		mConn, err := mgr.RegisterSudokuConn(uuid)
-		if err != nil {
-			cConn.Close()
-			return nil, fmt.Errorf("pairing failed: %w", err)
-		}
-
-		// Read BIND response
-		discardBuf := make([]byte, 4)
-		if _, err := io.ReadFull(mConn, discardBuf); err != nil {
-			mConn.Close()
-			cConn.Close()
-			return nil, fmt.Errorf("read bind magic failed: %w", err)
-		}
-
-		return &hybrid.SplitConn{
-			Conn:   cConn, // Base conn
-			Reader: cConn,
-			Writer: mConn,
-			CloseFn: func() error {
-				e1 := cConn.Close()
-				e2 := mConn.Close()
-				if e1 != nil {
-					return e1
-				}
-				return e2
-			},
-		}, nil
-
-	} else {
-		// Standard Mode
-		// Put back magic byte
-		return &PreBufferedConn{Conn: cConn, buf: magicBuf}, nil
-	}
+	return cConn, nil
 }
 
 func abs(x int64) int64 {

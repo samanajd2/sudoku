@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/saba-futai/sudoku/internal/config"
-	"github.com/saba-futai/sudoku/internal/hybrid"
 	"github.com/saba-futai/sudoku/internal/protocol"
 	"github.com/saba-futai/sudoku/internal/tunnel"
 	"github.com/saba-futai/sudoku/pkg/crypto"
@@ -110,19 +109,8 @@ func RunClient(cfg *config.Config, table *sudoku.Table) {
 		PrivateKey: privateKeyBytes,
 	}
 
-	if cfg.EnableMieru {
-		mgr := hybrid.GetInstance(cfg)
-		if err := mgr.StartMieruClient(); err != nil {
-			log.Fatalf("Failed to start Mieru Client: %v", err)
-		}
-		dialer = &tunnel.HybridDialer{
-			BaseDialer: baseDialer,
-			Manager:    mgr,
-		}
-	} else {
-		dialer = &tunnel.StandardDialer{
-			BaseDialer: baseDialer,
-		}
+	dialer = &tunnel.StandardDialer{
+		BaseDialer: baseDialer,
 	}
 
 	// 2. 初始化 GeoIP/PAC 管理器

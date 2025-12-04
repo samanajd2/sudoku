@@ -15,14 +15,15 @@ import (
 func TestSudokuTunnel_Standard(t *testing.T) {
 	// 1. Setup Config & Table
 	cfg := &config.Config{
-		Mode:          "server",
-		Transport:     "tcp",
-		ServerAddress: "127.0.0.1:0", // Random port
-		Key:           "test-key-123",
-		AEAD:          "chacha20-poly1305",
-		PaddingMin:    10,
-		PaddingMax:    20,
-		ASCII:         "prefer_entropy",
+		Mode:               "server",
+		Transport:          "tcp",
+		ServerAddress:      "127.0.0.1:0", // Random port
+		Key:                "test-key-123",
+		AEAD:               "chacha20-poly1305",
+		PaddingMin:         10,
+		PaddingMax:         20,
+		ASCII:              "prefer_entropy",
+		EnablePureDownlink: true,
 	}
 	table := sudoku.NewTable(cfg.Key, cfg.ASCII)
 
@@ -45,7 +46,7 @@ func TestSudokuTunnel_Standard(t *testing.T) {
 			go func(c net.Conn) {
 				defer c.Close()
 				// Handshake
-				sConn, err := HandshakeAndUpgrade(c, cfg, table, nil)
+				sConn, err := HandshakeAndUpgrade(c, cfg, table)
 				if err != nil {
 					t.Errorf("Server handshake failed: %v", err)
 					return

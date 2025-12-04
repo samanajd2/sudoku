@@ -8,13 +8,14 @@ import (
 
 func TestValidateClient(t *testing.T) {
 	cfg := &ProtocolConfig{
-		Table:         sudoku.NewTable("seed", "prefer_ascii"),
-		Key:           "k",
-		AEADMethod:    "chacha20-poly1305",
-		PaddingMin:    5,
-		PaddingMax:    10,
-		ServerAddress: "1.1.1.1:443",
-		TargetAddress: "example.com:80",
+		Table:              sudoku.NewTable("seed", "prefer_ascii"),
+		Key:                "k",
+		AEADMethod:         "chacha20-poly1305",
+		PaddingMin:         5,
+		PaddingMax:         10,
+		EnablePureDownlink: true,
+		ServerAddress:      "1.1.1.1:443",
+		TargetAddress:      "example.com:80",
 	}
 	if err := cfg.ValidateClient(); err != nil {
 		t.Fatalf("ValidateClient unexpected error: %v", err)
@@ -49,11 +50,18 @@ func TestValidateClient(t *testing.T) {
 	if err := cfg.ValidateClient(); err == nil {
 		t.Fatalf("expected target address error")
 	}
+
+	cfg.TargetAddress = "example.com:80"
+	cfg.EnablePureDownlink = false
+	cfg.AEADMethod = "none"
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected downlink AEAD validation error")
+	}
 }
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.AEADMethod == "" || cfg.PaddingMin == 0 || cfg.PaddingMax == 0 {
+	if cfg.AEADMethod == "" || cfg.PaddingMin == 0 || cfg.PaddingMax == 0 || !cfg.EnablePureDownlink {
 		t.Fatalf("defaults not set")
 	}
 }

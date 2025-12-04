@@ -34,32 +34,11 @@ Unlike traditional random noise obfuscation, this protocol uses various masking 
 
 ---
 
-> *Note: A 100% ASCII ratio requires the `ASCII-preferred` mode; in `ENTROPY-preferred` mode, it is 65%. A Hamming weight of 3.0 requires `ENTROPY-preferred` mode; in `ASCII-preferred` mode, it is 4.0.
+> *Note: A 100% ASCII ratio requires the `ASCII-preferred` mode; in `ENTROPY-preferred` mode, it is 65%. A Hamming weight of 3.0 requires `ENTROPY-preferred` mode; in `ASCII-preferred` mode, it is 4.0. Currently, there is no evidence indicating that either preference strategy possesses a distinct fingerprint.
 
-> Currently, there is no evidence indicating that either preference strategy possesses a distinct fingerprint.
-
----
-
-### Uplink/Downlink Separation
-#### —— Attempting to solve downlink bandwidth issues using the API provided by [mieru](https://github.com/enfein/mieru/tree/main)
-> Special thanks to the developers of [mieru](https://github.com/enfein/mieru/tree/main)
-
-Since the Sudoku protocol's encapsulation of streams leads to increased packet size, bandwidth limitations may occur in streaming and download scenarios (theoretically, 200mbps symmetric uplink/downlink on local and VPS ends should not cause bottlenecks). Therefore, the `mieru` protocol, which is also a non-TLS solution, is adopted as an (optional) downlink protocol.
-
-#### mieru Configuration
-```json
-"enable_mieru": true,
-"mieru_config": {
-    "port": 20123,
-    "transport": "TCP",
-    "mtu": 1400,
-    "multiplexing": "HIGH"
-}
-```
-**Explanation**: When `enable_mieru` is enabled but the `"mieru_config"` field is not configured, it defaults to using the UDP protocol on the same port as Sudoku. When `"enable_mieru"` is `true`, uplink/downlink separation is enabled; when `false`, the `"mieru_config"` field can be ignored. The mandatory field in `"mieru_config"` is `port`, specifying the downlink port; other configurations can be deleted directly.
-
-
-**Note**: It is currently uncertain whether the traffic characteristics resulting from this configuration will be censored, so it is tentatively listed as an `Experimental Feature`.
+### Downlink Modes
+* **Pure Sudoku Downlink**: Default. Uses classic Sudoku puzzles in both directions.
+* **Bandwidth-Optimized Downlink**: Set `"enable_pure_downlink": false` to pack AEAD ciphertext into 6-bit groups (01xxxxxx / 0xx0xxxx) with padding reuse. This reduces downlink overhead while keeping uplink untouched. AEAD must be enabled for this mode. Padding pools and ASCII/entropy preferences still influence the emitted byte distribution.
 
 ### Security & Encryption
 Beneath the obfuscation layer, the protocol optionally employs AEAD to protect data integrity and confidentiality.
@@ -70,8 +49,8 @@ Beneath the obfuscation layer, the protocol optionally employs AEAD to protect d
 When the server detects illegal handshake requests, timed-out connections, or malformed data packets, it does not disconnect immediately. Instead, it seamlessly forwards the connection to a specified decoy address (such as an Nginx or Apache server). Probers will only see a standard web server response.
 
 ### Drawbacks (TODO)
-1.  **Packet Format**: TCP native; UDP is supported via UoT (UDP-over-TCP) without exposing a raw UDP listener.
-2.  **Bandwidth Utilization**: Less than 30%. It is recommended for users with high-quality lines or high bandwidth. Additionally, it is recommended for VPN service providers ("Airport owners"), as it can effectively increase user traffic usage stats.
+1.  **Packet Format**: TCP native; UDP is relayed via UoT (UDP-over-TCP) without exposing a raw UDP listener.
+2.  **Bandwidth Utilization**: Obfuscation introduces overhead. Use the packed downlink mode to claw back bandwidth when downloads dominate.
 3.  **Client Proxy**: Only supports SOCKS5/HTTP.
 4.  **Protocol Popularity**: Currently only official and mihomo support, no compatibility with other cores.
 
@@ -99,15 +78,14 @@ go build -o sudoku cmd/sudoku-tunnel/main.go
   "ascii": "prefer_entropy",
   "padding_min": 2,
   "padding_max": 7,
-  "disable_http_mask": false,
-  "enable_mieru": false,
-  "mieru_config": {}
+  "enable_pure_downlink": true,
+  "disable_http_mask": false
 }
 ```
 
 ### Client Configuration
 
-Change `mode` to `client`, set `server_address` to the Server IP, set `local_port` to the proxy listening port, add `rule_urls` using the template in `configs/config.json`, and configure the uplink/downlink separation according to the template.
+Change `mode` to `client`, set `server_address` to the Server IP, set `local_port` to the proxy listening port, add `rule_urls` using the template in `configs/config.json`. Toggle `enable_pure_downlink` to `false` if you want the packed downlink mode.
 
 **Note**: The Key must be generated specifically by Sudoku.
 
@@ -150,7 +128,6 @@ Run the program specifying the `config.json` path as an argument:
 ## Acknowledgements
 
 - [Link 1](https://gfw.report/publications/usenixsecurity23/zh/)
-- [Link 2](https://github.com/enfein/mieru/issues/8)
 - [Link 3](https://github.com/zhaohuabing/lightsocks)
 - [Link 4](https://imciel.com/2020/08/27/create-custom-tunnel/)
 - [Link 5](https://oeis.org/A109252)

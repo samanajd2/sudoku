@@ -12,13 +12,13 @@ import (
 
 // shortLinkPayload holds the minimal fields we expose in sudoku:// links.
 type shortLinkPayload struct {
-	Host      string `json:"h"`            // server host / IP
-	Port      int    `json:"p"`            // server port
-	Key       string `json:"k"`            // shared key
-	ASCII     string `json:"a,omitempty"`  // "ascii" or "entropy"
-	AEAD      string `json:"e,omitempty"`  // AEAD method
-	MixPort   int    `json:"m,omitempty"`  // local mixed proxy port
-	MieruPort int    `json:"mp,omitempty"` // optional Mieru port (TCP)
+	Host           string `json:"h"`           // server host / IP
+	Port           int    `json:"p"`           // server port
+	Key            string `json:"k"`           // shared key
+	ASCII          string `json:"a,omitempty"` // "ascii" or "entropy"
+	AEAD           string `json:"e,omitempty"` // AEAD method
+	MixPort        int    `json:"m,omitempty"` // local mixed proxy port
+	PackedDownlink bool   `json:"x,omitempty"` // bandwidth-optimized downlink (non-pure Sudoku)
 }
 
 // BuildShortLinkFromConfig builds a sudoku:// short link from the provided config.
@@ -47,9 +47,7 @@ func BuildShortLinkFromConfig(cfg *Config, advertiseHost string) (string, error)
 		payload.MixPort = 1080 // reasonable default for mixed proxy
 	}
 
-	if cfg.EnableMieru && cfg.MieruConfig != nil {
-		payload.MieruPort = cfg.MieruConfig.Port
-	}
+	payload.PackedDownlink = !cfg.EnablePureDownlink
 
 	payload.ASCII = encodeASCII(cfg.ASCII)
 	if payload.AEAD == "" {
@@ -106,20 +104,13 @@ func BuildConfigFromShortLink(link string) (*Config, error) {
 		cfg.LocalPort = 1080
 	}
 
-	if payload.MieruPort > 0 {
-		cfg.EnableMieru = true
-		cfg.MieruConfig = &MieruConfig{
-			Port:      payload.MieruPort,
-			Transport: "TCP",
-		}
-	}
+	cfg.EnablePureDownlink = !payload.PackedDownlink
 
 	cfg.ASCII = decodeASCII(payload.ASCII)
 	if cfg.AEAD == "" {
 		cfg.AEAD = "none"
 	}
 
-	InitMieruconfig(cfg)
 	return cfg, nil
 }
 

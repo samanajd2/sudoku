@@ -38,7 +38,12 @@ func RunSetupWizard(defaultServerPath, publicHost string) (*WizardResult, error)
 		fmt.Printf("Padding max is smaller than min, using %d for both\n", paddingMin)
 		paddingMax = paddingMin
 	}
-	mieruPort := promptInt(reader, "Mieru port (0 to disable)", 0)
+	pureDownlinkInput := strings.ToLower(strings.TrimSpace(promptString(reader, "Enable pure Sudoku downlink? (yes/no)", "yes", "yes")))
+	enablePureDownlink := pureDownlinkInput != "no" && pureDownlinkInput != "n"
+	if !enablePureDownlink && aead == "none" {
+		fmt.Println("Bandwidth-optimized downlink requires AEAD. Forcing chacha20-poly1305.")
+		aead = "chacha20-poly1305"
+	}
 
 	keyInput := promptString(reader, "Shared key (leave empty to auto-generate)", "", "")
 	key := strings.TrimSpace(keyInput)
@@ -53,47 +58,33 @@ func RunSetupWizard(defaultServerPath, publicHost string) (*WizardResult, error)
 	}
 
 	serverCfg := &config.Config{
-		Mode:             "server",
-		Transport:        "tcp",
-		LocalPort:        serverPort,
-		FallbackAddr:     fallback,
-		Key:              key,
-		AEAD:             aead,
-		SuspiciousAction: suspiciousAction,
-		PaddingMin:       paddingMin,
-		PaddingMax:       paddingMax,
-		ASCII:            asciiMode,
-		EnableMieru:      mieruPort > 0,
+		Mode:               "server",
+		Transport:          "tcp",
+		LocalPort:          serverPort,
+		FallbackAddr:       fallback,
+		Key:                key,
+		AEAD:               aead,
+		SuspiciousAction:   suspiciousAction,
+		PaddingMin:         paddingMin,
+		PaddingMax:         paddingMax,
+		ASCII:              asciiMode,
+		EnablePureDownlink: enablePureDownlink,
 	}
 
 	clientCfg := &config.Config{
-		Mode:          "client",
-		Transport:     "tcp",
-		LocalPort:     mixPort,
-		ServerAddress: fmt.Sprintf("%s:%d", host, serverPort),
-		Key:           key,
-		AEAD:          aead,
-		PaddingMin:    paddingMin,
-		PaddingMax:    paddingMax,
-		ASCII:         asciiMode,
-		ProxyMode:     "pac",
-		RuleURLs:      nil,
-		EnableMieru:   mieruPort > 0,
+		Mode:               "client",
+		Transport:          "tcp",
+		LocalPort:          mixPort,
+		ServerAddress:      fmt.Sprintf("%s:%d", host, serverPort),
+		Key:                key,
+		AEAD:               aead,
+		PaddingMin:         paddingMin,
+		PaddingMax:         paddingMax,
+		ASCII:              asciiMode,
+		ProxyMode:          "pac",
+		RuleURLs:           nil,
+		EnablePureDownlink: enablePureDownlink,
 	}
-
-	if mieruPort > 0 {
-		serverCfg.MieruConfig = &config.MieruConfig{
-			Port:      mieruPort,
-			Transport: "TCP",
-		}
-		clientCfg.MieruConfig = &config.MieruConfig{
-			Port:      mieruPort,
-			Transport: "TCP",
-		}
-	}
-
-	config.InitMieruconfig(serverCfg)
-	config.InitMieruconfig(clientCfg)
 
 	serverPath := promptString(reader, "Server config output path", defaultServerPath, defaultServerPath)
 	if serverPath == "" {

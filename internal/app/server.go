@@ -10,20 +10,13 @@ import (
 
 	"github.com/saba-futai/sudoku/internal/config"
 	"github.com/saba-futai/sudoku/internal/handler"
-	"github.com/saba-futai/sudoku/internal/hybrid"
 	"github.com/saba-futai/sudoku/internal/protocol"
 	"github.com/saba-futai/sudoku/internal/tunnel"
 	"github.com/saba-futai/sudoku/pkg/obfs/sudoku"
 )
 
 func RunServer(cfg *config.Config, table *sudoku.Table) {
-	// 1. 启动 Mieru 服务 (Split 模式专用)
-	mgr := hybrid.GetInstance(cfg)
-	if err := mgr.StartMieruServer(); err != nil {
-		log.Fatalf("Failed to start Mieru Server: %v", err)
-	}
-
-	// 2. 监听 TCP 端口
+	// 1. 监听 TCP 端口
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.LocalPort))
 	if err != nil {
 		log.Fatal(err)
@@ -35,13 +28,13 @@ func RunServer(cfg *config.Config, table *sudoku.Table) {
 		if err != nil {
 			continue
 		}
-		go handleServerConn(c, cfg, table, mgr)
+		go handleServerConn(c, cfg, table)
 	}
 }
 
-func handleServerConn(rawConn net.Conn, cfg *config.Config, table *sudoku.Table, mgr *hybrid.Manager) {
+func handleServerConn(rawConn net.Conn, cfg *config.Config, table *sudoku.Table) {
 	// Use Tunnel Abstraction for Handshake and Upgrade
-	tunnelConn, err := tunnel.HandshakeAndUpgrade(rawConn, cfg, table, mgr)
+	tunnelConn, err := tunnel.HandshakeAndUpgrade(rawConn, cfg, table)
 	if err != nil {
 		if suspErr, ok := err.(*tunnel.SuspiciousError); ok {
 			log.Printf("[Security] Suspicious connection: %v", suspErr.Err)

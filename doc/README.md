@@ -8,9 +8,9 @@ Docs map:
 - 更新日志（中文）：[doc/CHANGELOG.zh.md](./CHANGELOG.zh.md)
 
 ## Overview
-- **What it is**: TCP tunnel with HTTP masking, Sudoku ASCII/entropy obfuscation, and AEAD encryption; supports split uplink/downlink (Mieru).
+- **What it is**: TCP tunnel with HTTP masking, Sudoku ASCII/entropy obfuscation, and AEAD encryption; optional bandwidth-optimized downlink plus UoT (UDP-over-TCP).
 - **Binaries**: single `sudoku` entry; configs in JSON; optional `sudoku://` short links for quick client bootstrap.
-- **Ports**: server listens on `local_port`; client exposes mixed HTTP/SOCKS proxy on `local_port`; Mieru optional extra port.
+- **Ports**: server listens on `local_port`; client exposes mixed HTTP/SOCKS proxy on `local_port`; UDP is relayed via the tunnel (UoT).
 
 ## Usage
 - Generate keys: `./sudoku -keygen` (prints master+split); or reuse a public key as the shared key.
@@ -25,7 +25,7 @@ Docs map:
 - **Sudoku obfuscation**: bytes encoded as 4×4 Sudoku hints; `prefer_ascii` keeps output printable, `prefer_entropy` maximizes entropy.
 - **AEAD**: `chacha20-poly1305` (default), `aes-128-gcm`, or `none` (test only); key hashed with SHA-256 to derive cipher key.
 - **Handshake**: timestamp + nonce; optional split-key derivation when client provided private key.
-- **Split (Mieru)**: optional downlink over dedicated transport; signaled by magic `0xFF` + UUID; server pairs via manager.
+- **Downlink modes**: pure Sudoku (default) or packed 6-bit downlink (`enable_pure_downlink=false`, requires AEAD).
 
 ## Config Templates
 Minimal Server (standard):
@@ -40,7 +40,7 @@ Minimal Server (standard):
   "padding_min": 5,
   "padding_max": 15,
   "ascii": "prefer_entropy",
-  "enable_mieru": false
+  "enable_pure_downlink": true
 }
 ```
 
@@ -60,11 +60,7 @@ Client (PAC, standard):
 }
 ```
 
-Prefer ASCII traffic: set `"ascii": "prefer_ascii"` on both ends.
-
-Enable Mieru (split):
-- Add `"enable_mieru": true` and `"mieru_config": {"port":20123,"transport":"TCP","mtu":1400,"multiplexing":"HIGH"}` on server.
-- Client mirrors `mieru_config.port` and sets `"enable_mieru": true`.
+Prefer ASCII traffic: set `"ascii": "prefer_ascii"` on both ends. Toggle `"enable_pure_downlink": false` to enable packed downlink.
 
 ## Deployment & Persistence
 - Build: `go build -o sudoku ./cmd/sudoku-tunnel`
@@ -98,7 +94,7 @@ WantedBy=multi-user.target
   - `a` ascii mode: `ascii` or `entropy` (default entropy)
   - `e` AEAD: `chacha20-poly1305` (default) / `aes-128-gcm` / `none`
   - `m` client mixed proxy port (default 1080 if missing)
-  - `mp` Mieru port (TCP; enables Mieru when present)
+  - `x` packed downlink (true enables bandwidth-optimized downlink)
 - Example: `sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo4MDgwLCJrIjoiYWJjZCIsImEiOiJhc2NpaSIsIm0iOjEwODAsIm1wIjoyMDEyM30`
 - Client bootstrap: `./sudoku -link "<link>"` (starts PAC proxy).
 - Export from config: `./sudoku -c client.json -export-link [-public-host host]`
@@ -108,9 +104,9 @@ WantedBy=multi-user.target
 <a name="zh"></a>
 
 ## 概览
-- **功能**：HTTP 伪装 + 数独 ASCII/高熵混淆 + AEAD 加密，可选上下行分离（Mieru）。
+- **功能**：HTTP 伪装 + 数独 ASCII/高熵混淆 + AEAD 加密，可选带宽优化下行。
 - **形态**：单二进制 `sudoku`，JSON 配置；可用 `sudoku://` 短链接直接启动客户端。
-- **端口**：服务端监听 `local_port`；客户端在 `local_port` 提供混合 HTTP/SOCKS 代理；Mieru 另开端口。
+- **端口**：服务端监听 `local_port`；客户端在 `local_port` 提供混合 HTTP/SOCKS 代理；UDP 通过隧道（UoT）转发。
 
 ## 使用方式
 - 生成密钥：`./sudoku -keygen`（输出主密钥与拆分密钥）
@@ -125,7 +121,7 @@ WantedBy=multi-user.target
 - **数独混淆**：每字节编码为 4×4 数独提示；`prefer_ascii` 输出可打印字符，`prefer_entropy` 输出高熵字节。
 - **AEAD 加密**：`chacha20-poly1305`（默认）/`aes-128-gcm`/`none`（仅测试）；密钥经 SHA-256 派生。
 - **握手**：时间戳 + 随机/私钥派生 nonce；支持拆分私钥推导。
-- **Mieru 分离**：魔数 `0xFF` + UUID 通知；服务端通过管理器配对上下行。
+- **下行模式**：默认纯数独下行；`enable_pure_downlink=false` 启用 6bit 拆分下行（需 AEAD）。
 
 ## 配置示例
 服务端（标准）：
@@ -140,7 +136,7 @@ WantedBy=multi-user.target
   "padding_min": 5,
   "padding_max": 15,
   "ascii": "prefer_entropy",
-  "enable_mieru": false
+  "enable_pure_downlink": true
 }
 ```
 
@@ -161,12 +157,12 @@ WantedBy=multi-user.target
 ```
 
 - ASCII 风格：`"ascii": "prefer_ascii"`（客户端/服务端一致）。
-- 开启 Mieru：`"enable_mieru": true`，并在双方设置相同的 `mieru_config.port`（TCP 默认）。
+- 带宽优化：将 `"enable_pure_downlink"` 设为 `false` 启用带宽优化下行（需 AEAD）。
 
 ## 部署与守护
 - 构建：`go build -o sudoku ./cmd/sudoku-tunnel`
 - Systemd 示例见上（修改路径/端口）；客户端可用用户级服务。
-- 确保 `LimitNOFILE` 足够大；若用 Mieru，放行其端口。
+- 确保 `LimitNOFILE` 足够大。
 
 ## 系统代理指向客户端
 - 混合代理监听 `local_port`（默认 1080）。
@@ -180,5 +176,5 @@ WantedBy=multi-user.target
   - `a` ASCII 模式：`ascii` / `entropy`（默认 entropy）
   - `e` AEAD：`chacha20-poly1305`（默认）/`aes-128-gcm`/`none`
   - `m` 客户端混合代理端口（缺省 1080）
-  - `mp` Mieru 端口（存在即启用，TCP）
+  - `x` 带宽优化下行标记（true=启用）
 - 启动：`./sudoku -link "<短链>"`；导出：`./sudoku -c client.json -export-link [-public-host]`

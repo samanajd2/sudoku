@@ -28,6 +28,7 @@ func TestHTTPMaskSwitch(t *testing.T) {
 		Table:                   table,
 		PaddingMin:              10,
 		PaddingMax:              20,
+		EnablePureDownlink:      true,
 		HandshakeTimeoutSeconds: 5,
 		DisableHTTPMask:         false, // Server enables mask (but should auto-detect)
 	}
@@ -55,14 +56,15 @@ func TestHTTPMaskSwitch(t *testing.T) {
 	// Test Case 1: Client with Mask (Default)
 	t.Run("ClientWithMask", func(t *testing.T) {
 		clientCfg := &apis.ProtocolConfig{
-			ServerAddress:   serverAddr,
-			TargetAddress:   "example.com:80",
-			Key:             key,
-			AEADMethod:      "chacha20-poly1305",
-			Table:           table,
-			PaddingMin:      10,
-			PaddingMax:      20,
-			DisableHTTPMask: false,
+			ServerAddress:      serverAddr,
+			TargetAddress:      "example.com:80",
+			Key:                key,
+			AEADMethod:         "chacha20-poly1305",
+			Table:              table,
+			PaddingMin:         10,
+			PaddingMax:         20,
+			EnablePureDownlink: true,
+			DisableHTTPMask:    false,
 		}
 
 		conn, err := apis.Dial(context.Background(), clientCfg)
@@ -87,14 +89,15 @@ func TestHTTPMaskSwitch(t *testing.T) {
 	// Test Case 2: Client without Mask
 	t.Run("ClientWithoutMask", func(t *testing.T) {
 		clientCfg := &apis.ProtocolConfig{
-			ServerAddress:   serverAddr,
-			TargetAddress:   "example.com:80",
-			Key:             key,
-			AEADMethod:      "chacha20-poly1305",
-			Table:           table,
-			PaddingMin:      10,
-			PaddingMax:      20,
-			DisableHTTPMask: true,
+			ServerAddress:      serverAddr,
+			TargetAddress:      "example.com:80",
+			Key:                key,
+			AEADMethod:         "chacha20-poly1305",
+			Table:              table,
+			PaddingMin:         10,
+			PaddingMax:         20,
+			EnablePureDownlink: true,
+			DisableHTTPMask:    true,
 		}
 
 		conn, err := apis.Dial(context.Background(), clientCfg)

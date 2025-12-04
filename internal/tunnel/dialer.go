@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/saba-futai/sudoku/internal/config"
-	"github.com/saba-futai/sudoku/internal/hybrid"
 	"github.com/saba-futai/sudoku/internal/protocol"
 	"github.com/saba-futai/sudoku/pkg/crypto"
 	"github.com/saba-futai/sudoku/pkg/dnsutil"
@@ -59,11 +58,15 @@ func (d *BaseDialer) dialBase() (net.Conn, error) {
 
 // ClientHandshake upgrades a raw connection to a Sudoku connection
 func ClientHandshake(conn net.Conn, cfg *config.Config, table *sudoku.Table, privateKey []byte) (net.Conn, error) {
+	if !cfg.EnablePureDownlink && cfg.AEAD == "none" {
+		return nil, fmt.Errorf("enable_pure_downlink=false requires AEAD")
+	}
+
 	// 3. Sudoku encapsulation
-	sConn := sudoku.NewConn(conn, table, cfg.PaddingMin, cfg.PaddingMax, false)
+	obfsConn := buildObfsConnForClient(conn, table, cfg)
 
 	// 4. Encryption
-	cConn, err := crypto.NewAEADConn(sConn, cfg.Key, cfg.AEAD)
+	cConn, err := crypto.NewAEADConn(obfsConn, cfg.Key, cfg.AEAD)
 	if err != nil {
 
 		return nil, fmt.Errorf("crypto setup failed: %w", err)
@@ -87,6 +90,12 @@ func ClientHandshake(conn net.Conn, cfg *config.Config, table *sudoku.Table, pri
 	if _, err := cConn.Write(handshake); err != nil {
 		cConn.Close()
 		return nil, fmt.Errorf("handshake failed: %w", err)
+	}
+
+	modeByte := []byte{downlinkModeByte(cfg)}
+	if _, err := cConn.Write(modeByte); err != nil {
+		cConn.Close()
+		return nil, fmt.Errorf("write downlink mode failed: %w", err)
 	}
 
 	return cConn, nil
@@ -126,74 +135,5 @@ func (d *StandardDialer) Dial(destAddrStr string) (net.Conn, error) {
 
 // DialUDPOverTCP establishes a UoT-capable tunnel for UDP proxying.
 func (d *StandardDialer) DialUDPOverTCP() (net.Conn, error) {
-	return d.dialUoT()
-}
-
-// HybridDialer implements Dialer for Split (Mieru) mode.
-type HybridDialer struct {
-	BaseDialer
-	Manager *hybrid.Manager
-}
-
-func (d *HybridDialer) Dial(destAddrStr string) (net.Conn, error) {
-	cConn, err := d.dialBase()
-	if err != nil {
-		return nil, err
-	}
-
-	// Split Mode Logic
-	splitUUID := hybrid.GenerateUUID()
-
-	// Send Split Flag (0xFF) + UUID
-	magic := []byte{0xFF}
-	uuidBytes := []byte(splitUUID)
-	lenByte := byte(len(uuidBytes))
-
-	if _, err := cConn.Write(magic); err != nil {
-		cConn.Close()
-		return nil, err
-	}
-	if _, err := cConn.Write([]byte{lenByte}); err != nil {
-		cConn.Close()
-		return nil, err
-	}
-	if _, err := cConn.Write(uuidBytes); err != nil {
-		cConn.Close()
-		return nil, err
-	}
-
-	// Establish Mieru Downlink
-	mConn, err := d.Manager.DialMieruForDownlink(splitUUID)
-	if err != nil {
-		cConn.Close()
-		return nil, fmt.Errorf("dial mieru failed: %w", err)
-	}
-
-	// Combine connections
-	hybridConn := &hybrid.SplitConn{
-		Conn:   cConn,
-		Writer: cConn,
-		Reader: mConn,
-		CloseFn: func() error {
-			e1 := cConn.Close()
-			e2 := mConn.Close()
-			if e1 != nil {
-				return e1
-			}
-			return e2
-		},
-	}
-
-	// Write destination address through Sudoku uplink
-	if err := protocol.WriteAddress(hybridConn, destAddrStr); err != nil {
-		hybridConn.Close()
-		return nil, fmt.Errorf("write address failed: %w", err)
-	}
-
-	return hybridConn, nil
-}
-
-// DialUDPOverTCP establishes a UoT tunnel when in hybrid (Mieru) mode.
-func (d *HybridDialer) DialUDPOverTCP() (net.Conn, error) {
 	return d.dialUoT()
 }

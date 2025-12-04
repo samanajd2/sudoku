@@ -3,9 +3,8 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
-
-	"github.com/saba-futai/sudoku/pkg/crypto"
 )
 
 func Load(path string) (*Config, error) {
@@ -15,7 +14,9 @@ func Load(path string) (*Config, error) {
 	}
 	defer f.Close()
 
-	var cfg Config
+	cfg := Config{
+		EnablePureDownlink: true,
+	}
 	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
 	}
@@ -28,7 +29,9 @@ func Load(path string) (*Config, error) {
 		cfg.ASCII = "prefer_entropy"
 	}
 
-	InitMieruconfig(&cfg)
+	if !cfg.EnablePureDownlink && cfg.AEAD == "none" {
+		return nil, fmt.Errorf("enable_pure_downlink=false requires AEAD to be enabled")
+	}
 
 	// 处理 ProxyMode 和 默认规则
 	// 如果用户显式设置了 rule_urls 为 ["global"] 或 ["direct"]，则覆盖模式
@@ -44,47 +47,4 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
-}
-
-func InitMieruconfig(cfg *Config) {
-	if !cfg.EnableMieru {
-		return
-	}
-
-	if cfg.MieruConfig == nil {
-		cfg.MieruConfig = &MieruConfig{
-			Port:      cfg.LocalPort,
-			Transport: "UDP",
-		}
-	}
-	if cfg.MieruConfig.Port == 0 {
-		cfg.MieruConfig.Port = cfg.LocalPort + 1000 // 默认偏移
-	}
-	if cfg.MieruConfig.Transport == "" {
-		cfg.MieruConfig.Transport = "TCP"
-	}
-
-	derivedIdentity := deriveIdentityFromKey(cfg.Key)
-	if cfg.MieruConfig.Username == "" {
-		cfg.MieruConfig.Username = derivedIdentity
-	}
-	if cfg.MieruConfig.Password == "" {
-		cfg.MieruConfig.Password = derivedIdentity
-	}
-	if cfg.MieruConfig.MTU == 0 {
-		cfg.MieruConfig.MTU = 1400
-	}
-	if cfg.MieruConfig.Multiplexing == "" {
-		// Align with mieru docs: default to low multiplexing to reduce
-		// per-underlay memory usage on small devices.
-		cfg.MieruConfig.Multiplexing = "MULTIPLEXING_LOW"
-	}
-}
-
-func deriveIdentityFromKey(key string) string {
-	recoveredFromKey, err := crypto.RecoverPublicKey(key)
-	if err != nil {
-		return key
-	}
-	return crypto.EncodePoint(recoveredFromKey)
 }

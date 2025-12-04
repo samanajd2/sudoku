@@ -28,31 +28,11 @@
 
 ---
 
-> *注：100%的ASCII占比须在ASCII优先模式下，ENTROPY优先模式下为65%。 3.0的汉明重量须在ENTROPY优先模式下，ASCII优先模式下为4.0.
+> *注：100%的ASCII占比须在ASCII优先模式下，ENTROPY优先模式下为65%。 3.0的汉明重量须在ENTROPY优先模式下，ASCII优先模式下为4.0。目前没有证据表明任一优先策略有明显指纹。
 
-> 目前没有任何证据表明两种优先策略的任何一种有明显指纹。
-
----
-
-### 上下行分离
-#### ——基于[mieru](https://github.com/enfein/mieru/tree/main)提供的API的下行带宽解决尝试
-> 在此特别感谢[mieru](https://github.com/enfein/mieru/tree/main)的开发者
-
-由于sudoku协议对流的封装会导致包增大，对于流媒体和下载场景，可能出现带宽受限的问题（理论本地与VPS各有200mbps上下行不会出现瓶颈），因此采用同样为非TLS方案的mieru协议作(可选的)下行协议。
-#### mieru配置
-```json
-"enable_mieru": true,
-"mieru_config": {
-    "port": 20123,
-    "transport": "TCP",
-    "mtu": 1400,
-    "multiplexing": "HIGH"
-}
-```
-**解释**：当仅开启`enable_mieru`但不配置`"mieru_config"`字段时，默认使用sudoku同端口的UDP协议。`"enable_mieru"`为`true`时即开启上下行分离，为`false`时可忽略`"mieru_config"`字段。`"mieru_config"`字段中必填项为`port`，指定下行端口，其他配置可直接删除。
-
-
-**注意**：目前尚不确定这种配置方法带来的流量特征是否会被审查，暂列为`实验性功能`。
+### 下行模式
+* **纯 Sudoku 下行**：默认模式，上下行都使用经典的数独谜题编码。
+* **带宽优化下行**：将 `enable_pure_downlink` 设为 `false` 后，下行会把 AEAD 密文拆成 6bit 片段（01xxxxxx / 0xx0xxxx），复用原有的填充池与 ASCII/entropy 偏好，降低下行开销；上行保持原有协议。此模式必须开启 AEAD。
 
 ### 安全与加密
 在混淆层之下，协议可选的采用 AEAD 保护数据完整性与机密性。
@@ -64,7 +44,7 @@
 
 ### 缺点（TODO）
 1.  **数据包格式**: 原生 TCP，UDP 通过 UoT（UDP-over-TCP）隧道支持，暂不暴露原生 UDP 监听。
-2.  **带宽利用率**: 低于30%，推荐线路好的或者带宽高的用户使用，另外推荐机场主使用，可以有效增加用户的流量。
+2.  **带宽利用率**: 混淆会带来额外开销，可通过关闭 `enable_pure_downlink` 启用带宽优化下行来缓解下载场景。
 3.  **客户端代理**: 仅支持socks5/http。
 4.  **协议普及度**: 暂仅有官方和Mihomo支持，
 
@@ -95,15 +75,14 @@ go build -o sudoku cmd/sudoku-tunnel/main.go
   "ascii": "prefer_entropy",
   "padding_min": 2,
   "padding_max": 7,
-  "disable_http_mask": false,
-  "enable_mieru": false,
-  "mieru_config": {}
+  "enable_pure_downlink": true,
+  "disable_http_mask": false
 }
 ```
 
 ### 客户端配置
 
-将 `mode` 改为 `client`，并设置 `server_address` 为服务端 IP，将`local_port` 设置为代理监听端口，添加 `rule_urls` 使用`configs/config.json`的模板填充，以及按照模板配置上下行分离配置即可。
+将 `mode` 改为 `client`，并设置 `server_address` 为服务端 IP，将`local_port` 设置为代理监听端口，添加 `rule_urls` 使用`configs/config.json`的模板填充；如需带宽优化下行，将 `enable_pure_downlink` 置为 `false`。
 
 **注意**：Key一定要用sudoku专门生成
 
@@ -147,7 +126,6 @@ Split Private Key: 89acb9663cfd3bd04adf0001cc7000a8eb312903088b33a847d7e5cf102f1
 ## 鸣谢
 
 - [链接1](https://gfw.report/publications/usenixsecurity23/zh/)
-- [链接2](https://github.com/enfein/mieru/issues/8)
 - [链接3](https://github.com/zhaohuabing/lightsocks)
 - [链接4](https://imciel.com/2020/08/27/create-custom-tunnel/)
 - [链接5](https://oeis.org/A109252)

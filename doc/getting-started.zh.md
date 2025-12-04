@@ -39,7 +39,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
   "padding_min": 5,
   "padding_max": 15,
   "ascii": "prefer_entropy",
-  "enable_mieru": false
+  "enable_pure_downlink": true
 }
 ```
 
@@ -61,7 +61,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
 }
 ```
 - 想要看起来更像纯文本：把 `ascii` 改成 `prefer_ascii`，客户端和服务端需一致。
-- 想要上下行分离（Mieru）：在两端都把 `enable_mieru` 设为 `true`，并补充 `mieru_config` 的端口。
+- 想要更好的下行带宽：两端都将 `enable_pure_downlink` 设为 `false`，开启带宽优化下行（需 AEAD）。
 
 ## 6. 启动
 ```bash

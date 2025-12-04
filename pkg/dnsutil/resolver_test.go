@@ -112,4 +112,3 @@ func TestResolve_InvalidAddress(t *testing.T) {
 		t.Fatalf("expected error for invalid address")
 	}
 }
-

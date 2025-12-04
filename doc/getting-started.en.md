@@ -37,7 +37,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
   "padding_min": 5,
   "padding_max": 15,
   "ascii": "prefer_entropy",
-  "enable_mieru": false
+  "enable_pure_downlink": true
 }
 ```
 
@@ -58,7 +58,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
 }
 ```
 - Want plaintext-looking traffic? Set `ascii` to `prefer_ascii` on both sides.
-- Want split uplink/downlink (Mieru)? Set `enable_mieru` to `true` on both sides and add a matching `mieru_config.port`.
+- Want more downlink throughput? Set `enable_pure_downlink` to `false` on both sides to enable the packed mode (AEAD required).
 
 ## 6) Run
 ```bash

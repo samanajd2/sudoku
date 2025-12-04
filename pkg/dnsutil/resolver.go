@@ -184,4 +184,3 @@ func firstNonNilIP(ips []net.IP) net.IP {
 	}
 	return nil
 }
-

@@ -4,37 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/saba-futai/sudoku/pkg/crypto"
 )
-
-func TestInitMieruconfigDefaults(t *testing.T) {
-	pair, err := crypto.GenerateMasterKey()
-	if err != nil {
-		t.Fatalf("GenerateMasterKey error: %v", err)
-	}
-
-	cfg := &Config{
-		EnableMieru: true,
-		LocalPort:   7000,
-		Key:         crypto.EncodeScalar(pair.Private),
-	}
-
-	InitMieruconfig(cfg)
-
-	if cfg.MieruConfig == nil {
-		t.Fatalf("MieruConfig not initialized")
-	}
-	if cfg.MieruConfig.Port == 0 {
-		t.Fatalf("Port not set")
-	}
-	if cfg.MieruConfig.Transport == "" {
-		t.Fatalf("Transport not set")
-	}
-	if cfg.MieruConfig.Username == "" || cfg.MieruConfig.Password == "" {
-		t.Fatalf("Identity not derived")
-	}
-}
 
 func TestLoadDefaults(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -65,5 +35,29 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.ProxyMode != "global" || cfg.RuleURLs != nil {
 		t.Fatalf("ProxyMode parsing failed, mode=%s urls=%v", cfg.ProxyMode, cfg.RuleURLs)
+	}
+	if !cfg.EnablePureDownlink {
+		t.Fatalf("EnablePureDownlink should default to true")
+	}
+}
+
+func TestLoadRejectsPackedWithoutAEAD(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "cfg.json")
+
+	data := `{
+		"mode": "server",
+		"local_port": 8080,
+		"server_address": "0.0.0.0:8080",
+		"key": "k",
+		"aead": "none",
+		"enable_pure_downlink": false
+	}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatalf("expected error when packed downlink used without AEAD")
 	}
 }

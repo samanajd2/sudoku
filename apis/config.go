@@ -69,6 +69,10 @@ type ProtocolConfig struct {
 	// 必须 >= PaddingMin
 	PaddingMax int
 
+	// EnablePureDownlink 是否保持纯 Sudoku 下行
+	// false 时启用带宽优化的 6bit 拆分下行，要求 AEAD 启用
+	EnablePureDownlink bool
+
 	// ============ 客户端特有字段 ============
 
 	// TargetAddress 客户端想要访问的最终目标地址 (仅客户端使用)
@@ -123,6 +127,10 @@ func (c *ProtocolConfig) Validate() error {
 		return fmt.Errorf("PaddingMax (%d) must be >= PaddingMin (%d)", c.PaddingMax, c.PaddingMin)
 	}
 
+	if !c.EnablePureDownlink && c.AEADMethod == "none" {
+		return fmt.Errorf("bandwidth optimized downlink requires AEAD")
+	}
+
 	if c.HandshakeTimeoutSeconds < 0 {
 		return fmt.Errorf("HandshakeTimeoutSeconds must be >= 0, got %d", c.HandshakeTimeoutSeconds)
 	}
@@ -151,6 +159,7 @@ func DefaultConfig() *ProtocolConfig {
 		AEADMethod:              "chacha20-poly1305",
 		PaddingMin:              10,
 		PaddingMax:              30,
+		EnablePureDownlink:      true,
 		HandshakeTimeoutSeconds: 5,
 	}
 }

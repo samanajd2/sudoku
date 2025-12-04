@@ -8,16 +8,13 @@ import (
 
 func TestShortLinkRoundTrip_Client(t *testing.T) {
 	cfg := &Config{
-		Mode:          "client",
-		LocalPort:     1081,
-		ServerAddress: "8.8.8.8:443",
-		Key:           "deadbeef",
-		AEAD:          "aes-128-gcm",
-		ASCII:         "prefer_ascii",
-		EnableMieru:   true,
-		MieruConfig: &MieruConfig{
-			Port: 9000,
-		},
+		Mode:               "client",
+		LocalPort:          1081,
+		ServerAddress:      "8.8.8.8:443",
+		Key:                "deadbeef",
+		AEAD:               "aes-128-gcm",
+		ASCII:              "prefer_ascii",
+		EnablePureDownlink: false,
 	}
 
 	link, err := BuildShortLinkFromConfig(cfg, "")
@@ -45,8 +42,8 @@ func TestShortLinkRoundTrip_Client(t *testing.T) {
 	if decoded.AEAD != cfg.AEAD {
 		t.Fatalf("aead mismatch, got %s", decoded.AEAD)
 	}
-	if !decoded.EnableMieru || decoded.MieruConfig == nil || decoded.MieruConfig.Port != cfg.MieruConfig.Port {
-		t.Fatalf("mieru config mismatch")
+	if decoded.EnablePureDownlink != cfg.EnablePureDownlink {
+		t.Fatalf("downlink mode mismatch")
 	}
 	if decoded.ASCII != "prefer_ascii" {
 		t.Fatalf("ascii mismatch, got %s", decoded.ASCII)
@@ -55,14 +52,13 @@ func TestShortLinkRoundTrip_Client(t *testing.T) {
 
 func TestShortLinkAdvertiseServer(t *testing.T) {
 	cfg := &Config{
-		Mode:         "server",
-		LocalPort:    9443,
-		Key:          "deadbeef",
-		ASCII:        "",
-		AEAD:         "",
-		EnableMieru:  false,
-		MieruConfig:  nil,
-		FallbackAddr: "127.0.0.1:80",
+		Mode:               "server",
+		LocalPort:          9443,
+		Key:                "deadbeef",
+		ASCII:              "",
+		AEAD:               "",
+		EnablePureDownlink: true,
+		FallbackAddr:       "127.0.0.1:80",
 	}
 
 	link, err := BuildShortLinkFromConfig(cfg, "example.com")
