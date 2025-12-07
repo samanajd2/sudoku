@@ -135,9 +135,8 @@ Run the program specifying the `config.json` path as an argument:
 - [Link 6](https://pi.math.cornell.edu/~mec/Summer2009/Mahmood/Four.html)
 
 
-## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=saba-futai/sudoku&type=Date)](https://star-history.com/#saba-futai/sudoku)
+====================
 
 
 
