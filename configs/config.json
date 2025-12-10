@@ -8,6 +8,7 @@
   "suspicious_action": "fallback / silent",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "enable_pure_downlink": true,
   "disable_http_mask": false,

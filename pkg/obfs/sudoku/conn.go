@@ -154,24 +154,7 @@ func (sc *Conn) Read(p []byte) (n int, err error) {
 			sc.recordLock.Unlock()
 
 			for _, b := range chunk {
-				isPadding := false
-
-				if sc.table.IsASCII {
-					// === ASCII Mode ===
-					// Padding: 001xxxxx (Bit 6 is 0) -> (b & 0x40) == 0
-					// Hint:    01vvpppp (Bit 6 is 1) -> (b & 0x40) != 0
-					if (b & 0x40) == 0 {
-						isPadding = true
-					}
-				} else {
-					// === Entropy Mode ===
-					// Padding: 0x80... or 0x10... -> (b & 0x90) != 0
-					if (b & 0x90) != 0 {
-						isPadding = true
-					}
-				}
-
-				if isPadding {
+				if !sc.table.layout.isHint(b) {
 					continue
 				}
 

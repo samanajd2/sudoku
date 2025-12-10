@@ -79,10 +79,12 @@ go build -o sudoku cmd/sudoku-tunnel/main.go
   "ascii": "prefer_entropy",
   "padding_min": 2,
   "padding_max": 7,
+  "custom_table": "xpxvvpvv",
   "enable_pure_downlink": true,
   "disable_http_mask": false
 }
 ```
+Add `"custom_table": "xpxvvpvv"` (two `x`, two `p`, four `v`, 420 permutations allowed) to enforce a custom byte layout; `"ascii": "prefer_ascii"` still overrides it.
 
 ### Client Configuration
 

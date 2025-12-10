@@ -43,6 +43,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
   "suspicious_action": "fallback",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "enable_pure_downlink": true
 }
@@ -59,6 +60,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
   "aead": "chacha20-poly1305",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "disable_http_mask": false,
   "proxy_mode": "pac",
@@ -66,6 +68,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
 }
 ```
 - 想要看起来更像纯文本：把 `ascii` 改成 `prefer_ascii`，客户端和服务端需一致。
+- 想要自定义字节指纹：添加 `custom_table`（两个 `x`、两个 `p`、四个 `v`，如 `xpxvvpvv`，共 420 种全排列）；若同时配置 ASCII，则 ASCII 优先生效。
 - 想要更好的下行带宽：两端都将 `enable_pure_downlink` 设为 `false`，开启带宽优化下行（需 AEAD）。
 
 ## 6. 启动

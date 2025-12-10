@@ -7,7 +7,7 @@
 - 或者直接跟随最新提交：`go get github.com/saba-futai/sudoku`
 
 ## 配置要点
-- 表格：`table := sudoku.NewTable("your-seed", "prefer_ascii"|"prefer_entropy")`（两端一致）。
+- 表格：`sudoku.NewTable("your-seed", "prefer_ascii"|"prefer_entropy")` 或 `sudoku.NewTableWithCustom("seed", "prefer_entropy", "xpxvvpvv")`（2 个 `x`、2 个 `p`、4 个 `v`，ASCII 优先）。
 - 密钥：任意字符串即可，需两端一致，可用 `./sudoku -keygen` 或 `crypto.GenerateMasterKey` 生成。
 - AEAD：`chacha20-poly1305`（默认）或 `aes-128-gcm`，`none` 仅测试用。
 - 填充：`PaddingMin`/`PaddingMax` 为 0-100 的概率百分比。
@@ -28,12 +28,17 @@ import (
 )
 
 func main() {
+	table, err := sudoku.NewTableWithCustom("seed-for-table", "prefer_entropy", "xpxvvpvv")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cfg := &apis.ProtocolConfig{
 		ServerAddress: "1.2.3.4:8443",
 		TargetAddress: "example.com:443",
 		Key:           "shared-key-hex-or-plain",
 		AEADMethod:    "chacha20-poly1305",
-		Table:         sudoku.NewTable("seed-for-table", "prefer_ascii"),
+		Table:         table,
 		PaddingMin:    5,
 		PaddingMax:    15,
 	}
@@ -65,10 +70,15 @@ import (
 )
 
 func main() {
+	table, err := sudoku.NewTableWithCustom("seed-for-table", "prefer_entropy", "xpxvvpvv")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cfg := &apis.ProtocolConfig{
 		Key:                     "shared-key-hex-or-plain",
 		AEADMethod:              "chacha20-poly1305",
-		Table:                   sudoku.NewTable("seed-for-table", "prefer_ascii"),
+		Table:                   table,
 		PaddingMin:              5,
 		PaddingMax:              15,
 		HandshakeTimeoutSeconds: 5,

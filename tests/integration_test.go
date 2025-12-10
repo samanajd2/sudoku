@@ -398,14 +398,20 @@ func parseSocksUDPResponse(t *testing.T, packet []byte) (string, []byte) {
 
 // Start Sudoku endpoints.
 func startSudokuServer(cfg *config.Config) {
-	table := sudoku.NewTable(cfg.Key, cfg.ASCII)
+	table, err := sudoku.NewTableWithCustom(cfg.Key, cfg.ASCII, cfg.CustomTable)
+	if err != nil {
+		panic(err)
+	}
 	go app.RunServer(cfg, table)
 	time.Sleep(200 * time.Millisecond)
 	waitForPort(cfg.LocalPort)
 }
 
 func startSudokuClient(cfg *config.Config) {
-	table := sudoku.NewTable(cfg.Key, cfg.ASCII)
+	table, err := sudoku.NewTableWithCustom(cfg.Key, cfg.ASCII, cfg.CustomTable)
+	if err != nil {
+		panic(err)
+	}
 	go app.RunClient(cfg, table)
 	time.Sleep(200 * time.Millisecond)
 	waitForPort(cfg.LocalPort)
@@ -449,7 +455,7 @@ func collectTraffic(ch chan []byte) TrafficStats {
 	return stats
 }
 
-func runTCPTransfer(t *testing.T, asciiMode string, pureDownlink bool, key string, payload []byte) (TrafficStats, TrafficStats) {
+func runTCPTransfer(t *testing.T, asciiMode string, pureDownlink bool, key string, payload []byte, custom string) (TrafficStats, TrafficStats) {
 	t.Helper()
 
 	ports, _ := getFreePorts(4)
@@ -466,6 +472,7 @@ func runTCPTransfer(t *testing.T, asciiMode string, pureDownlink bool, key strin
 		Key:                key,
 		AEAD:               "aes-128-gcm",
 		ASCII:              asciiMode,
+		CustomTable:        custom,
 		EnablePureDownlink: pureDownlink,
 		FallbackAddr:       "127.0.0.1:80",
 		PaddingMin:         8,
@@ -484,6 +491,7 @@ func runTCPTransfer(t *testing.T, asciiMode string, pureDownlink bool, key strin
 		Key:                key,
 		AEAD:               "aes-128-gcm",
 		ASCII:              asciiMode,
+		CustomTable:        custom,
 		EnablePureDownlink: pureDownlink,
 		ProxyMode:          "global",
 	}
@@ -518,8 +526,8 @@ func runTCPTransfer(t *testing.T, asciiMode string, pureDownlink bool, key strin
 func TestDownlinkASCIIAndPacked(t *testing.T) {
 	payload := bytes.Repeat([]byte("0123456789abcdef"), 8192) // ~128KB
 
-	upPure, downPure := runTCPTransfer(t, "prefer_ascii", true, "testkey-ascii", payload)
-	upPacked, downPacked := runTCPTransfer(t, "prefer_ascii", false, "testkey-ascii", payload)
+	upPure, downPure := runTCPTransfer(t, "prefer_ascii", true, "testkey-ascii", payload, "")
+	upPacked, downPacked := runTCPTransfer(t, "prefer_ascii", false, "testkey-ascii", payload, "")
 
 	if downPure.TotalBytes == 0 || downPacked.TotalBytes == 0 {
 		t.Fatalf("no traffic captured")
@@ -543,8 +551,8 @@ func TestDownlinkASCIIAndPacked(t *testing.T) {
 
 func TestDownlinkEntropyModes(t *testing.T) {
 	payload := bytes.Repeat([]byte("entropy-test-payload"), 6000)
-	upPure, downPure := runTCPTransfer(t, "prefer_entropy", true, "entropy-key", payload)
-	upPacked, downPacked := runTCPTransfer(t, "prefer_entropy", false, "entropy-key", payload)
+	upPure, downPure := runTCPTransfer(t, "prefer_entropy", true, "entropy-key", payload, "")
+	upPacked, downPacked := runTCPTransfer(t, "prefer_entropy", false, "entropy-key", payload, "")
 
 	if downPacked.TotalBytes >= downPure.TotalBytes {
 		t.Errorf("packed entropy downlink did not shrink traffic: pure=%d packed=%d", downPure.TotalBytes, downPacked.TotalBytes)
@@ -560,6 +568,24 @@ func TestDownlinkEntropyModes(t *testing.T) {
 	}
 	if upPure.AvgHammingWeight() < 2.4 || upPacked.AvgHammingWeight() < 2.4 {
 		t.Errorf("uplink entropy hamming too low: pure=%.2f packed=%.2f", upPure.AvgHammingWeight(), upPacked.AvgHammingWeight())
+	}
+}
+
+func TestCustomTableTraffic(t *testing.T) {
+	payload := bytes.Repeat([]byte{0xAA, 0x55, 0xF0, 0x0F}, 4096)
+	customPattern := "xpxvvpvv"
+
+	upPure, downPure := runTCPTransfer(t, "prefer_entropy", true, "custom-key", payload, customPattern)
+	upPacked, downPacked := runTCPTransfer(t, "prefer_entropy", false, "custom-key", payload, customPattern)
+
+	if downPure.TotalBytes == 0 || downPacked.TotalBytes == 0 {
+		t.Fatalf("no traffic captured for custom table")
+	}
+	if downPure.AvgHammingWeight() < 4.6 || downPacked.AvgHammingWeight() < 4.6 {
+		t.Fatalf("custom table downlink hamming too low: pure=%.2f packed=%.2f", downPure.AvgHammingWeight(), downPacked.AvgHammingWeight())
+	}
+	if upPure.AvgHammingWeight() < 4.6 || upPacked.AvgHammingWeight() < 4.6 {
+		t.Fatalf("custom table uplink hamming too low: pure=%.2f packed=%.2f", upPure.AvgHammingWeight(), upPacked.AvgHammingWeight())
 	}
 }
 

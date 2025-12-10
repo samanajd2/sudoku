@@ -19,6 +19,7 @@ type shortLinkPayload struct {
 	AEAD           string `json:"e,omitempty"` // AEAD method
 	MixPort        int    `json:"m,omitempty"` // local mixed proxy port
 	PackedDownlink bool   `json:"x,omitempty"` // bandwidth-optimized downlink (non-pure Sudoku)
+	CustomTable    string `json:"t,omitempty"` // optional custom byte layout
 }
 
 // BuildShortLinkFromConfig builds a sudoku:// short link from the provided config.
@@ -48,6 +49,7 @@ func BuildShortLinkFromConfig(cfg *Config, advertiseHost string) (string, error)
 	}
 
 	payload.PackedDownlink = !cfg.EnablePureDownlink
+	payload.CustomTable = cfg.CustomTable
 
 	payload.ASCII = encodeASCII(cfg.ASCII)
 	if payload.AEAD == "" {
@@ -90,6 +92,7 @@ func BuildConfigFromShortLink(link string) (*Config, error) {
 		LocalPort:     payload.MixPort,
 		ServerAddress: fmt.Sprintf("%s:%d", payload.Host, payload.Port),
 		Key:           payload.Key,
+		CustomTable:   payload.CustomTable,
 		AEAD:          payload.AEAD,
 		PaddingMin:    5,
 		PaddingMax:    15,

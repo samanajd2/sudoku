@@ -19,39 +19,36 @@ type Table struct {
 	DecodeMap   map[uint32]byte
 	PaddingPool []byte
 	IsASCII     bool // 标记当前模式
+	layout      *byteLayout
 }
 
-// NewTable initializes the obfuscation tables
-// mode: "prefer_ascii" or "prefer_entropy"
+// NewTable initializes the obfuscation tables with built-in layouts.
+// Equivalent to calling NewTableWithCustom(key, mode, "").
 func NewTable(key string, mode string) *Table {
+	t, err := NewTableWithCustom(key, mode, "")
+	if err != nil {
+		log.Panicf("failed to build table: %v", err)
+	}
+	return t
+}
+
+// NewTableWithCustom initializes obfuscation tables using either predefined or custom layouts.
+// mode: "prefer_ascii" or "prefer_entropy". If a custom pattern is provided, ASCII mode still takes precedence.
+// The customPattern must contain 8 characters with exactly 2 x, 2 p, and 4 v (case-insensitive).
+func NewTableWithCustom(key string, mode string, customPattern string) (*Table, error) {
 	start := time.Now()
+
+	layout, err := resolveLayout(mode, customPattern)
+	if err != nil {
+		return nil, err
+	}
+
 	t := &Table{
 		DecodeMap: make(map[uint32]byte),
-		IsASCII:   mode == "prefer_ascii",
+		IsASCII:   layout.name == "ascii",
+		layout:    layout,
 	}
-
-	// 初始化填充池和编码逻辑
-	if t.IsASCII {
-		// === ASCII Mode (0x20 - 0x7F) ===
-		// Payload (Hint): 01vvpppp (Bit 6 is 1) -> 0x40 | ...
-		// Padding: 001xxxxx (Bit 6 is 0) -> 0x20 | rand(0-31)
-		// Range: Padding [32, 63], Payload [64, 127]
-
-		t.PaddingPool = make([]byte, 0, 32)
-		for i := 0; i < 32; i++ {
-			// 001xxxxx -> 0x20 + i
-			t.PaddingPool = append(t.PaddingPool, byte(0x20+i))
-		}
-	} else {
-		// === Entropy Mode (Legacy) ===
-		// Padding: 0x80 (10000xxx) & 0x10 (00010xxx)
-		// Payload: Avoids bits 7 and 4 being strictly defined like padding
-		t.PaddingPool = make([]byte, 0, 16)
-		for i := 0; i < 8; i++ {
-			t.PaddingPool = append(t.PaddingPool, byte(0x80+i))
-			t.PaddingPool = append(t.PaddingPool, byte(0x10+i))
-		}
-	}
+	t.PaddingPool = append(t.PaddingPool, layout.paddingPool...)
 
 	// 生成数独网格 (逻辑不变)
 	allGrids := GenerateAllGrids()
@@ -120,17 +117,7 @@ func NewTable(key string, mode string) *Table {
 			if matchCount == 1 {
 				// 唯一确定，生成最终编码字节
 				for i, p := range rawParts {
-					if t.IsASCII {
-						// ASCII Encoding: 01vvpppp
-						// vv = val-1 (0..3), pppp = pos (0..15)
-						// 0x40 | (vv << 4) | pppp
-						currentHints[i] = 0x40 | ((p.val - 1) << 4) | (p.pos & 0x0F)
-					} else {
-						// Entropy Encoding (Legacy)
-						// 0vv0pppp
-						// 格式: ((val-1) << 5) | pos
-						currentHints[i] = ((p.val - 1) << 5) | (p.pos & 0x0F)
-					}
+					currentHints[i] = t.layout.encodeHint(p.val-1, p.pos)
 				}
 
 				t.EncodeTable[byteVal] = append(t.EncodeTable[byteVal], currentHints)
@@ -140,8 +127,8 @@ func NewTable(key string, mode string) *Table {
 			}
 		}
 	}
-	log.Printf("[Init] Sudoku Tables initialized (%s) in %v", mode, time.Since(start))
-	return t
+	log.Printf("[Init] Sudoku Tables initialized (%s) in %v", layout.name, time.Since(start))
+	return t, nil
 }
 
 func packHintsToKey(hints [4]byte) uint32 {

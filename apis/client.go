@@ -66,7 +66,7 @@ import (
 //	    TargetAddress: "google.com:443",
 //	    Key:           "my-secret-key",
 //	    AEADMethod:    "chacha20-poly1305",
-//	    Table:         sudoku.NewTable("my-seed", "prefer_ascii"),
+//	    Table:         sudoku.NewTableWithCustom("my-seed", "prefer_entropy", "xpxvvpvv"),
 //	    PaddingMin:    10,
 //	    PaddingMax:    30,
 //	}

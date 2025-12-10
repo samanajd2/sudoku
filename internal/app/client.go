@@ -66,7 +66,11 @@ func normalizeClientKey(cfg *config.Config, table *sudoku.Table) ([]byte, *sudok
 	}
 
 	cfg.Key = crypto.EncodePoint(pubKeyPoint)
-	return privateKeyBytes, sudoku.NewTable(cfg.Key, cfg.ASCII), true, nil
+	newTable, err := sudoku.NewTableWithCustom(cfg.Key, cfg.ASCII, cfg.CustomTable)
+	if err != nil {
+		return nil, table, false, err
+	}
+	return privateKeyBytes, newTable, true, nil
 }
 
 func (d *DNSCache) Lookup(host string) net.IP {

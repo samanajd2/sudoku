@@ -14,6 +14,7 @@ func TestShortLinkRoundTrip_Client(t *testing.T) {
 		Key:                "deadbeef",
 		AEAD:               "aes-128-gcm",
 		ASCII:              "prefer_ascii",
+		CustomTable:        "xpxvvpvv",
 		EnablePureDownlink: false,
 	}
 
@@ -41,6 +42,9 @@ func TestShortLinkRoundTrip_Client(t *testing.T) {
 	}
 	if decoded.AEAD != cfg.AEAD {
 		t.Fatalf("aead mismatch, got %s", decoded.AEAD)
+	}
+	if decoded.CustomTable != cfg.CustomTable {
+		t.Fatalf("custom table mismatch, got %s", decoded.CustomTable)
 	}
 	if decoded.EnablePureDownlink != cfg.EnablePureDownlink {
 		t.Fatalf("downlink mode mismatch")

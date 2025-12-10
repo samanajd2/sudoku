@@ -91,7 +91,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse short link: %v", err)
 		}
-		table := sudoku.NewTable(cfg.Key, cfg.ASCII)
+		table, err := sudoku.NewTableWithCustom(cfg.Key, cfg.ASCII, cfg.CustomTable)
+		if err != nil {
+			log.Fatalf("Failed to build table: %v", err)
+		}
 		app.RunClient(cfg, table)
 		return
 	}
@@ -105,7 +108,10 @@ func main() {
 		fmt.Printf("Client config saved to %s\n", result.ClientConfigPath)
 		fmt.Printf("Short link: %s\n", result.ShortLink)
 
-		table := sudoku.NewTable(result.ServerConfig.Key, result.ServerConfig.ASCII)
+		table, err := sudoku.NewTableWithCustom(result.ServerConfig.Key, result.ServerConfig.ASCII, result.ServerConfig.CustomTable)
+		if err != nil {
+			log.Fatalf("Failed to build table: %v", err)
+		}
 		app.RunServer(result.ServerConfig, table)
 		return
 	}
@@ -133,7 +139,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	table := sudoku.NewTable(cfg.Key, cfg.ASCII)
+	table, err := sudoku.NewTableWithCustom(cfg.Key, cfg.ASCII, cfg.CustomTable)
+	if err != nil {
+		log.Fatalf("Failed to build table: %v", err)
+	}
 
 	if cfg.Mode == "client" {
 		app.RunClient(cfg, table)

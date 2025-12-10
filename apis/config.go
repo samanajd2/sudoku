@@ -54,7 +54,8 @@ type ProtocolConfig struct {
 	AEADMethod string
 
 	// Table Sudoku 编码映射表 (客户端和服务端必须相同)
-	// 使用 sudoku.NewTable(seed, "prefer_ascii"|"prefer_entropy") 创建
+	// 使用 sudoku.NewTable(seed, "prefer_ascii"|"prefer_entropy") 或
+	// sudoku.NewTableWithCustom(seed, "prefer_entropy", "<xpxvvpvv>") 创建
 	// 不能为 nil
 	Table *sudoku.Table
 

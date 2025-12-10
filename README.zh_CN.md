@@ -78,10 +78,13 @@ go build -o sudoku cmd/sudoku-tunnel/main.go
   "ascii": "prefer_entropy",
   "padding_min": 2,
   "padding_max": 7,
+  "custom_table": "xpxvvpvv",
   "enable_pure_downlink": true,
   "disable_http_mask": false
 }
 ```
+
+如需自定义字节特征，可以在配置中加入 `custom_table`（两个 `x`、两个 `p`、四个 `v`，如 `xpxvvpvv`，共 420 种排列）；`"ascii": "prefer_ascii"` 会优先生效。
 
 ### 客户端配置
 

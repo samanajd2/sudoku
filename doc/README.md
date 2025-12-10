@@ -39,6 +39,7 @@ Minimal Server (standard):
   "suspicious_action": "fallback",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "enable_pure_downlink": true
 }
@@ -54,6 +55,7 @@ Client (PAC, standard):
   "aead": "chacha20-poly1305",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "proxy_mode": "pac",
   "rule_urls": []
@@ -61,6 +63,7 @@ Client (PAC, standard):
 ```
 
 Prefer ASCII traffic: set `"ascii": "prefer_ascii"` on both ends. Toggle `"enable_pure_downlink": false` to enable packed downlink.
+Need a custom byte fingerprint? Add `custom_table` with two `x`, two `p`, and four `v` (e.g. `xpxvvpvv`); all 420 permutations are accepted, and ASCII preference still wins if enabled.
 
 ## Deployment & Persistence
 - Build: `go build -o sudoku ./cmd/sudoku-tunnel`
@@ -95,6 +98,7 @@ WantedBy=multi-user.target
   - `e` AEAD: `chacha20-poly1305` (default) / `aes-128-gcm` / `none`
   - `m` client mixed proxy port (default 1080 if missing)
   - `x` packed downlink (true enables bandwidth-optimized downlink)
+  - `t` custom table pattern (optional, same as `custom_table` in config)
 - Example: `sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo4MDgwLCJrIjoiYWJjZCIsImEiOiJhc2NpaSIsIm0iOjEwODAsIm1wIjoyMDEyM30`
 - Client bootstrap: `./sudoku -link "<link>"` (starts PAC proxy).
 - Export from config: `./sudoku -c client.json -export-link [-public-host host]`
@@ -135,6 +139,7 @@ WantedBy=multi-user.target
   "suspicious_action": "fallback",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "enable_pure_downlink": true
 }
@@ -150,6 +155,7 @@ WantedBy=multi-user.target
   "aead": "chacha20-poly1305",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "proxy_mode": "pac",
   "rule_urls": []
@@ -158,6 +164,7 @@ WantedBy=multi-user.target
 
 - ASCII 风格：`"ascii": "prefer_ascii"`（客户端/服务端一致）。
 - 带宽优化：将 `"enable_pure_downlink"` 设为 `false` 启用带宽优化下行（需 AEAD）。
+- 自定义字节特征：添加 `custom_table`（两个 `x`、两个 `p`、四个 `v`，如 `xpxvvpvv`，共 420 种排列），`ascii` 优先级最高。
 
 ## 部署与守护
 - 构建：`go build -o sudoku ./cmd/sudoku-tunnel`
@@ -177,4 +184,5 @@ WantedBy=multi-user.target
   - `e` AEAD：`chacha20-poly1305`（默认）/`aes-128-gcm`/`none`
   - `m` 客户端混合代理端口（缺省 1080）
   - `x` 带宽优化下行标记（true=启用）
+  - `t` 自定义表型（可选，与 `custom_table` 一致）
 - 启动：`./sudoku -link "<短链>"`；导出：`./sudoku -c client.json -export-link [-public-host]`
