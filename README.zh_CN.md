@@ -37,7 +37,7 @@
 
 ### 下行模式
 * **纯 Sudoku 下行**：默认模式，上下行都使用经典的数独谜题编码。
-* **带宽优化下行**：将 `enable_pure_downlink` 设为 `false` 后，下行会把 AEAD 密文拆成 6bit 片段（01xxxxxx / 0xx0xxxx），复用原有的填充池与 ASCII/entropy 偏好，降低下行开销；上行保持原有协议。此模式必须开启 AEAD。
+* **带宽优化下行**：将 `enable_pure_downlink` 设为 `false` 后，下行会把 AEAD 密文拆成 6bit 片段，复用原有的填充池与 ASCII/entropy/customised 偏好，降低下行开销；上行保持sudoku本身协议，下行特征此时与上行保持一致。此模式必须开启 AEAD。
 
 
 ### 安全与加密
