@@ -1,6 +1,6 @@
 <p align="center">
   <img src="./assets/logo-cute.svg" width="100%">
-    一种基于数独的代理协议，开启了明文 / 低熵代理时代
+    一种抛弃随机数基于数独的代理协议，开启了明文 / 低熵 / 用户自定义特征代理时代
 </p>
 
 # Sudoku (ASCII)
