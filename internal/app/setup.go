@@ -34,6 +34,7 @@ func RunSetupWizard(defaultServerPath, publicHost string) (*WizardResult, error)
 	suspiciousAction := promptString(reader, "Suspicious action (fallback / silent)", "", "fallback")
 	paddingMin := promptInt(reader, "Padding min (%)", 5)
 	paddingMax := promptInt(reader, "Padding max (%)", 15)
+	customTable := promptString(reader, "Custom table layout (optional, e.g. xpxvvpvv)", "", "")
 	if paddingMax < paddingMin {
 		fmt.Printf("Padding max is smaller than min, using %d for both\n", paddingMin)
 		paddingMax = paddingMin
@@ -68,6 +69,7 @@ func RunSetupWizard(defaultServerPath, publicHost string) (*WizardResult, error)
 		PaddingMin:         paddingMin,
 		PaddingMax:         paddingMax,
 		ASCII:              asciiMode,
+		CustomTable:        customTable,
 		EnablePureDownlink: enablePureDownlink,
 	}
 
@@ -81,6 +83,7 @@ func RunSetupWizard(defaultServerPath, publicHost string) (*WizardResult, error)
 		PaddingMin:         paddingMin,
 		PaddingMax:         paddingMax,
 		ASCII:              asciiMode,
+		CustomTable:        customTable,
 		ProxyMode:          "pac",
 		RuleURLs:           nil,
 		EnablePureDownlink: enablePureDownlink,

@@ -2,6 +2,11 @@
 
 Step-by-step instructions for absolute beginners to get a working client/server pair.
 
+## 0) One Click Script on Server
+
+**[easy-install](https://github.com/SUDOKU-ASCII/easy-install)**
+
+
 ## 1) What you need
 - OS: Linux / macOS / Windows.
 - Either download the release binary or install Go 1.22+ to build it yourself.
@@ -36,6 +41,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
   "suspicious_action": "fallback",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "enable_pure_downlink": true
 }
@@ -51,6 +57,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
   "aead": "chacha20-poly1305",
   "padding_min": 5,
   "padding_max": 15,
+  "custom_table": "xpxvvpvv",
   "ascii": "prefer_entropy",
   "disable_http_mask": false,
   "proxy_mode": "pac",
@@ -58,6 +65,7 @@ go build -o sudoku ./cmd/sudoku-tunnel
 }
 ```
 - Want plaintext-looking traffic? Set `ascii` to `prefer_ascii` on both sides.
+- Need a custom byte fingerprint? Add `custom_table` (e.g. `xpxvvpvv` with two `x`, two `p`, four `v`; all 420 permutations are valid); ASCII mode still wins if enabled.
 - Want more downlink throughput? Set `enable_pure_downlink` to `false` on both sides to enable the packed mode (AEAD required).
 
 ## 6) Run

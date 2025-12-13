@@ -67,19 +67,11 @@ func NewPackedConn(c net.Conn, table *Table, pMin, pMax int) *PackedConn {
 		rng:         localRng,
 		paddingRate: rate,
 	}
-	if table.IsASCII {
-		pc.padMarker = 0x3F
-		for _, b := range table.PaddingPool {
-			if b != pc.padMarker {
-				pc.padPool = append(pc.padPool, b)
-			}
-		}
-	} else {
-		pc.padMarker = 0x80
-		for _, b := range table.PaddingPool {
-			if b != pc.padMarker {
-				pc.padPool = append(pc.padPool, b)
-			}
+
+	pc.padMarker = table.layout.padMarker
+	for _, b := range table.PaddingPool {
+		if b != pc.padMarker {
+			pc.padPool = append(pc.padPool, b)
 		}
 	}
 	if len(pc.padPool) == 0 {
@@ -270,19 +262,11 @@ func (pc *PackedConn) Read(p []byte) (int, error) {
 			// 缓存频繁访问的变量
 			rBuf := pc.readBitBuf
 			rBits := pc.readBits
-			isASCII := pc.table.IsASCII
 			padMarker := pc.padMarker
+			layout := pc.table.layout
 
 			for _, b := range pc.rawBuf[:nr] {
-				// 内联 isPadding 逻辑
-				var isPad bool
-				if isASCII {
-					isPad = (b & 0x40) == 0
-				} else {
-					isPad = (b & 0x90) != 0
-				}
-
-				if isPad {
+				if !layout.isHint(b) {
 					if b == padMarker {
 						rBuf = 0
 						rBits = 0
@@ -290,12 +274,9 @@ func (pc *PackedConn) Read(p []byte) (int, error) {
 					continue
 				}
 
-				// 内联 decodeGroup 逻辑
-				var group byte
-				if isASCII {
-					group = b & 0x3F
-				} else {
-					group = ((b >> 1) & 0x30) | (b & 0x0F)
+				group, ok := layout.decodeGroup(b)
+				if !ok {
+					return 0, ErrInvalidSudokuMapMiss
 				}
 
 				rBuf = (rBuf << 6) | uint64(group)
@@ -347,9 +328,5 @@ func (pc *PackedConn) getPaddingByte() byte {
 
 // encodeGroup 编码 6-bit 组
 func (pc *PackedConn) encodeGroup(group byte) byte {
-	if pc.table.IsASCII {
-		return 0x40 | group // 01xxxxxx
-	}
-	// Binary Mode: 0xx0xxxx
-	return ((group & 0x30) << 1) | (group & 0x0F)
+	return pc.table.layout.encodeGroup(group)
 }
